@@ -1,24 +1,24 @@
 name: "Replace JSON Key Values"
-description: "Reemplaza valores en archivos JSON usando sintaxis Objeto.Clave=valor"
+description: "Replaces values in JSON files using Object.Key=value syntax"
 author: "georguiazel"
 
 inputs:
   files:
-    description: "Lista de archivos donde reemplazar valores, separados por |"
+    description: "List of files where values will be replaced, separated by |"
     required: true
   replacements:
-    description: "Pares Objeto.Clave=valor, separados por |. Ejemplo: WebApi.MinExecWorker=5|Log.Limit=50"
+    description: "Object.Key=value pairs, separated by |. Example: Json.Example=true|Log.LimitExecute=10"
     required: true
 
 runs:
   using: "composite"
   steps:
-    - name: Instalar Python si no está
+    - name: Install Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.x"
 
-    - name: Ejecutar reemplazo en JSON
+    - name: Execute JSON replacements
       shell: bash
       run: |
         python3 "${{ github.action_path }}/replace_json.py" \

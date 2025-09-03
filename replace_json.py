@@ -6,17 +6,19 @@ import sys
 import io
 
 
+# Ensure stdout uses UTF-8 encoding
 try:
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 except Exception:
     pass
 
+
 def parse_replacements(raw: str):
     """
-    Convierte 'A.B=1|C=2' en dict {'A.B': 1, 'C': 2} con cast automático:
-      - 5, 3.14 → número
+    Converts 'A.B=1|C=2' into a list of pairs [('A.B', 1), ('C', 2)] with automatic casting:
+      - 5, 3.14 → number
       - true/false/null → bool/None
-      - resto → string (sin necesidad de comillas)
+      - everything else → string (quotes not required)
     """
     replacements = []
     for pair in raw.split("|"):
@@ -32,8 +34,9 @@ def parse_replacements(raw: str):
         replacements.append((key, parsed_value))
     return replacements
 
+
 def set_by_path(obj, path_parts, value):
-    """Crea dicts intermedios si no existen y asigna el valor al final de la ruta."""
+    """Creates intermediate dicts if they don’t exist and assigns the value at the end of the path."""
     current = obj
     for k in path_parts[:-1]:
         if k not in current or not isinstance(current[k], dict):
@@ -41,12 +44,13 @@ def set_by_path(obj, path_parts, value):
         current = current[k]
     current[path_parts[-1]] = value
 
+
 def set_value(obj, key, value):
     """
-    Reglas:
-      - 'nested:K1.K2'  -> trata puntos como ruta anidada
-      - 'literal:K1.K2' -> trata la clave literalmente (con puntos)
-      - por defecto: si existe clave literal -> reemplaza; si no, usa ruta anidada
+    Rules:
+      - 'nested:K1.K2'  -> treat dots as a nested path
+      - 'literal:K1.K2' -> treat the key literally (with dots)
+      - default: if a literal key exists -> replace it; otherwise use nested path
     """
     if key.startswith("nested:"):
         dotted = key[len("nested:"):]
@@ -63,54 +67,55 @@ def set_value(obj, key, value):
     else:
         set_by_path(obj, key.split("."), value)
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--files", required=True, help="Archivos separados por |")
-    parser.add_argument("--replacements", required=True, help="Reemplazos clave=valor separados por |")
+    parser.add_argument("--files", required=True, help="List of files separated by |")
+    parser.add_argument("--replacements", required=True, help="Key=value pairs separated by |")
     args = parser.parse_args()
 
     files = [f for f in args.files.split("|") if f.strip()]
     replacements = parse_replacements(args.replacements)
 
     if not files:
-        print("[X] No se recibieron archivos en --files", file=sys.stderr)
+        print("[X] No files received in --files", file=sys.stderr)
         sys.exit(1)
     if not replacements:
-        print("[X] No se recibieron reemplazos en --replacements", file=sys.stderr)
+        print("[X] No replacements received in --replacements", file=sys.stderr)
         sys.exit(1)
 
     for file in files:
         if not os.path.exists(file):
-            print(f"[X] Archivo no encontrado: {file}", file=sys.stderr)
+            print(f"[X] File not found: {file}", file=sys.stderr)
             sys.exit(1)
 
-        print(f"Procesando archivo: {file}")
+        print(f"Processing file: {file}")
         try:
             with open(file, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except json.JSONDecodeError:
-            print(f"[X] El archivo no es JSON válido: {file}", file=sys.stderr)
+            print(f"[X] File is not valid JSON: {file}", file=sys.stderr)
             sys.exit(1)
 
-        
+        # Apply replacements
         for key, val in replacements:
             set_value(data, key, val)
 
-        
+        # Write back updated JSON
         with open(file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        print(f"[OK] Archivo actualizado: {file}")
+        print(f"[OK] File updated: {file}")
 
-        
+        # Print updated content
         try:
             with open(file, "r", encoding="utf-8") as f:
-                print("------ contenido actualizado ------")
+                print("------ updated content ------")
                 print(f.read())
-                print("------ fin de archivo ------")
+                print("------ end of file ------")
         except Exception:
-            
             pass
+
 
 if __name__ == "__main__":
     main()
