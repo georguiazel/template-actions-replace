@@ -1,6 +1,6 @@
 name: "Replace JSON Key Values"
 description: "Reemplaza valores en archivos JSON usando sintaxis Objeto.Clave=valor"
-author: ""
+author: "georguiazel"
 
 inputs:
   files:
