@@ -1,86 +1,30 @@
-name: 'Replace Nested Key Values'
-description: 'Reemplaza valores de claves anidadas y planas en archivos JSON usando la sintaxis Objeto.Clave=valor.'
-author: 'georguiazel'
+name: "Replace JSON Key Values"
+description: "Reemplaza valores en archivos JSON usando sintaxis Objeto.Clave=valor"
+author: ""
 
 inputs:
   files:
-    description: 'Lista de archivos donde reemplazar valores, separados por | (pipe)'
+    description: "Lista de archivos donde reemplazar valores, separados por |"
     required: true
   replacements:
-    description: 'Pares Objeto.Clave=valor, separados por |. Ejemplo: WebApi.MinExecWorker=5|Log.Limit=50'
+    description: "Pares Objeto.Clave=valor, separados por |. Ejemplo: WebApi.MinExecWorker=5|Log.Limit=50"
     required: true
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-    - name: Reemplazar valores en JSON
-      shell: pwsh
+    - name: Instalar Python si no está
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+
+    - name: Ejecutar reemplazo en JSON
+      shell: bash
       run: |
-        # Obtener lista de archivos separados por |
-        $files = "${{ inputs.files }}" -split '\|'
-
-        # Diccionario de reemplazos
-        $replacements = @{}
-        foreach ($pair in "${{ inputs.replacements }}" -split '\|') {
-          if ($pair -match '^(.*?)=(.*)$') {
-            $replacements[$matches[1]] = $matches[2]
-          }
-        }
-
-        # Procesar cada archivo
-        foreach ($file in $files) {
-          if (Test-Path $file) {
-            Write-Host "Procesando archivo: $file"
-
-            # Leer contenido del archivo
-            $content = Get-Content $file -Raw
-
-            # Eliminar comentarios tipo //
-            $content = $content -replace '(?m)^\s*//.*$', ''
-
-            # Iterar sobre cada clave a reemplazar
-            foreach ($key in $replacements.Keys) {
-              $valor = $replacements[$key]
-
-              # Normalización de valores
-              if ($valor -match '^".*"$') {
-                # ya tiene comillas dobles → dejar igual
-              }
-              elseif ($valor -match "^.*'$") {
-                # ya tiene comillas simples → dejar igual
-              }
-              elseif ($valor -match '^(true|false|null|\d+)$') {
-                # es booleano, null o número → dejar sin comillas
-              }
-              else {
-                # si no es nada de lo anterior → envolver en comillas dobles
-                $valor = '"' + $valor.Trim('*') + '"'
-              }
-
-              # Reemplazo para claves anidadas Objeto.Clave
-              if ($key -match '^([^.]+)\.([^.]+)$') {
-                $parent = [regex]::Escape($matches[1])
-                $child  = [regex]::Escape($matches[2])
-
-                $pattern = '"' + $parent + '"\s*:\s*\{([\s\S]*?)("' + $child + '"\s*:\s*)("[^"]*"|\d+|true|false|null)'
-                $content = [regex]::Replace($content, $pattern, ('"' + $parent + '": {' + '$1' + '"' + $child + '":' + $valor), 1)
-              }
-
-              # Reemplazo para claves planas
-              $flatKey = [regex]::Escape($key)
-              $patternFlat = '"' + $flatKey + '"\s*:\s*("[^"]*"|\d+|true|false|null)'
-              $content = [regex]::Replace($content, $patternFlat, ('"' + $key + '":' + $valor), 1)
-            }
-
-            # Guardar cambios en el archivo
-            Set-Content $file $content
-            Write-Host "Archivo actualizado: $file"
-          }
-          else {
-            Write-Host "Archivo no encontrado: $file"
-          }
-        }
+        python3 "${{ github.action_path }}/replace_json.py" \
+          --files "${{ inputs.files }}" \
+          --replacements "${{ inputs.replacements }}"
 
 branding:
-  icon: 'edit'
-  color: 'green'
+  icon: "edit"
+  color: "green"
